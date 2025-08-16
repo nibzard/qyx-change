@@ -40,7 +40,7 @@ jobs:
       - name: 🏗️ Build Qyx Change
         run: npm run build
 
-      - name: 🎯 META: Generate changelog using Qyx Change itself!
+      - name: "🎯 META: Generate changelog using Qyx Change itself!"
         run: |
           echo "🎯 META DEMONSTRATION: Qyx Change generating its own changelog!"
           echo "🤖 Tone preset: ${{ github.event.inputs.tone_preset }}"
