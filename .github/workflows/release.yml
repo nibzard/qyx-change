@@ -1,0 +1,126 @@
+name: 🚀 Generate Release Notes with Qyx Change
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to generate release notes for'
+        required: true
+        default: 'v0.1.1'
+      create_pr:
+        description: 'Create PR for changelog updates'
+        type: boolean
+        default: true
+
+jobs:
+  generate-release-notes:
+    runs-on: ubuntu-latest
+    name: 📝 Auto-generate changelog using Qyx Change
+    steps:
+      - name: 🔍 Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Need full history for changelog generation
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🏗️ Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🏗️ Build the project
+        run: npm run build
+
+      - name: 🤖 Generate Release Notes with Qyx Change
+        id: qyx-change
+        run: |
+          # Set version from input or use the release tag
+          VERSION="${{ github.event.inputs.version || github.event.release.tag_name }}"
+          
+          # Generate changelog using our own tool
+          if [ "${{ github.event_name }}" = "release" ]; then
+            echo "🚀 Generating release notes for $VERSION"
+            npm run dev -- release --tag "$VERSION" --dry-run --verbose
+          else
+            echo "📝 Generating unreleased changelog"
+            npm run dev -- generate --verbose
+          fi
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+
+      - name: 💾 Commit changelog updates
+        if: ${{ !github.event.inputs.create_pr || github.event.inputs.create_pr == 'false' }}
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "Qyx Change Action"
+          
+          if [ -n "$(git status --porcelain)" ]; then
+            git add CHANGELOG.md
+            git commit -m "docs: update changelog with Qyx Change
+            
+            🤖 Generated release notes using our own AI-powered changelog generator
+            
+            🤖 Generated with [Claude Code](https://claude.ai/code)
+            
+            Co-Authored-By: Claude <noreply@anthropic.com>"
+            git push
+          else
+            echo "No changelog changes to commit"
+          fi
+
+      - name: 🔄 Create Pull Request for changelog
+        if: ${{ github.event.inputs.create_pr == 'true' }}
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: |
+            docs: update changelog with Qyx Change
+            
+            🤖 Generated release notes using our own AI-powered changelog generator
+            
+            🤖 Generated with [Claude Code](https://claude.ai/code)
+            
+            Co-Authored-By: Claude <noreply@anthropic.com>
+          title: "📝 Update changelog with Qyx Change"
+          body: |
+            ## 🤖 Automated Changelog Update
+            
+            This PR was automatically created by **Qyx Change** - our own AI-powered changelog generator!
+            
+            ### 🎯 **Meta Proof of Work**
+            This is Qyx Change generating its own release notes, demonstrating:
+            - ✅ AI-powered content generation
+            - ✅ Automated workflow integration  
+            - ✅ Professional changelog formatting
+            - ✅ Privacy-first data processing
+            
+            ### 📝 **What's Changed**
+            - Updated `CHANGELOG.md` with AI-generated release notes
+            - Categorized changes using configured sections
+            - Added commit references for traceability
+            
+            ### 🔍 **Review Checklist**
+            - [ ] Release notes accurately reflect the changes
+            - [ ] Categorization makes sense for the audience
+            - [ ] No sensitive information was included
+            - [ ] Format follows Keep a Changelog standards
+            
+            ---
+            
+            🤖 **Generated with [Qyx Change](https://github.com/nibzard/qyx-change)** using Claude Code AI
+          branch: qyx-change/update-changelog
+          delete-branch: true
+
+      - name: 🎉 Output results
+        run: |
+          echo "✅ Qyx Change meta proof of work completed!"
+          echo "📝 Generated changelog using our own AI-powered tool"
+          echo "🤖 This demonstrates the full capabilities of Qyx Change"
