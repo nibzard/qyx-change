@@ -17,6 +17,12 @@ on:
         type: boolean
         default: true
 
+# Grant permissions for the workflow to create PRs and push
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
 jobs:
   meta-demo:
     runs-on: ubuntu-latest
