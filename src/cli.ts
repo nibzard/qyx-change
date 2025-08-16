@@ -1,22 +1,27 @@
 #!/usr/bin/env node
 
+import { config } from 'dotenv';
 import { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
 import { promises as fs } from 'fs';
-import { join } from 'path';
 import YAML from 'yaml';
+
+// Load environment variables from .env files
+config({ path: '.env.local', override: true });  // Override shell vars with .env.local
+config({ path: '.env', override: true });
 
 // Import our domains
 import { GitCollector, GitHubCollector } from './domains/collection/index.js';
 import { Normalizer, Redactor } from './domains/normalization/index.js';
-import { ClaudeGenerator, ToneManager } from './domains/generation/index.js';
+import { ClaudeGenerator } from './domains/generation/index.js';
 import { ChangelogWriter, GitHubReleaseUpdater } from './domains/output/index.js';
 import { 
   DEFAULT_CONFIG, 
   QyxChangeConfig, 
   CollectionOptions,
-  GenerationOptions 
+  GenerationOptions,
+  ConfigValidator 
 } from './domains/shared/index.js';
 
 const program = new Command();
@@ -83,7 +88,34 @@ async function generateChangelog(options: CLIOptions): Promise<void> {
   try {
     // Load configuration
     const config = await loadConfig(options.config);
-    spinner.succeed('Configuration loaded');
+    
+    // Validate configuration
+    const configValidation = ConfigValidator.validate(config);
+    const envValidation = ConfigValidator.validateEnvironment();
+    
+    if (!configValidation.isValid || !envValidation.isValid) {
+      spinner.fail('Configuration validation failed');
+      
+      [...configValidation.errors, ...envValidation.errors].forEach(error => {
+        console.error(chalk.red('  ❌'), error);
+      });
+      
+      if (options.verbose) {
+        [...configValidation.warnings, ...envValidation.warnings].forEach(warning => {
+          console.warn(chalk.yellow('  ⚠️'), warning);
+        });
+      }
+      
+      throw new Error('Invalid configuration. Please fix the errors above.');
+    }
+    
+    if (options.verbose && (configValidation.warnings.length > 0 || envValidation.warnings.length > 0)) {
+      [...configValidation.warnings, ...envValidation.warnings].forEach(warning => {
+        console.warn(chalk.yellow('⚠️'), warning);
+      });
+    }
+    
+    spinner.succeed('Configuration loaded and validated');
 
     // Collect changes
     spinner.start('Collecting changes from repository...');
@@ -181,8 +213,64 @@ async function createRelease(options: CLIOptions): Promise<void> {
   const spinner = ora('Creating release...').start();
   
   try {
-    // First generate the changelog
-    await generateChangelog({ ...options, preview: false });
+    // Load configuration
+    const config = await loadConfig(options.config);
+    spinner.succeed('Configuration loaded');
+
+    // Collect and generate release data
+    spinner.start('Generating release data...');
+    const collectionOptions: CollectionOptions = {
+      since: options.since,
+      to: options.to,
+      includePrs: true,
+      includeIssues: false,
+    };
+
+    const gitCollector = new GitCollector();
+    const changes = await gitCollector.collectCommits(collectionOptions);
+    
+    // Enrich with GitHub data if available
+    if (process.env.GITHUB_TOKEN || process.env.GITHUB_REPOSITORY) {
+      try {
+        const githubCollector = new GitHubCollector();
+        const prChanges = await githubCollector.collectPullRequests(collectionOptions);
+        changes.push(...prChanges);
+      } catch (error) {
+        if (options.verbose) {
+          console.warn(chalk.yellow('Warning: Could not fetch GitHub data:'), error instanceof Error ? error.message : 'Unknown error');
+        }
+      }
+    }
+
+    // Normalize and process changes
+    const normalizer = new Normalizer(config.format);
+    const normalized = normalizer.normalize(changes);
+
+    // Apply redaction for privacy
+    const redactor = new Redactor(config.redaction);
+    const redactionResult = redactor.redactChanges(normalized.changes);
+
+    // Generate release notes using Claude
+    const generationOptions: GenerationOptions = {
+      tonePreset: config.generation.tonePreset,
+      toneFile: config.generation.toneFile,
+      locale: config.generation.locale,
+      includeDeveloperNotes: config.generation.includeDeveloperNotes,
+      sendDiffSnippets: config.generation.sendDiffSnippets,
+    };
+
+    const generator = new ClaudeGenerator(generationOptions, config.format);
+    const generationResult = await generator.generateReleaseNotes(redactionResult.redactedChanges, options.tag);
+    
+    spinner.succeed('Release data generated');
+
+    // Write changelog
+    if (!options.dryRun) {
+      spinner.start('Writing changelog...');
+      const writer = new ChangelogWriter(config.format);
+      const writeResult = await writer.writeChangelog(generationResult.releaseData, options.tag);
+      spinner.succeed(`Changelog ${writeResult.wasUpdated ? 'updated' : 'created'}: ${writeResult.changelogPath}`);
+    }
     
     if (options.push && !options.dryRun) {
       spinner.start('Creating GitHub release...');
@@ -198,19 +286,10 @@ async function createRelease(options: CLIOptions): Promise<void> {
         throw new Error('Invalid GITHUB_REPOSITORY format');
       }
 
-      // Load config to get the generated release data
-      const config = await loadConfig(options.config);
-      
-      // TODO: We need to store the release data from generation to use here
-      // For now, create a simple release
+      // Create GitHub release with the generated data
       const releaseUpdater = new GitHubReleaseUpdater();
       const releaseResult = await releaseUpdater.createOrUpdateRelease(
-        {
-          releaseTitle: `${options.tag} Release`,
-          sections: [],
-          developerNotes: [],
-          summary: 'Release created via qyx-change',
-        },
+        generationResult.releaseData,
         {
           owner,
           repo,
@@ -220,6 +299,14 @@ async function createRelease(options: CLIOptions): Promise<void> {
       );
 
       spinner.succeed(`GitHub release ${releaseResult.wasCreated ? 'created' : 'updated'}: ${releaseResult.htmlUrl}`);
+    } else if (options.dryRun) {
+      // Show preview
+      const writer = new ChangelogWriter(config.format);
+      const preview = await writer.previewChangelog(generationResult.releaseData, options.tag);
+      console.log(chalk.blue('\n--- Release Preview ---\n'));
+      console.log(preview);
+      console.log(chalk.blue('\n--- End Preview ---\n'));
+      spinner.succeed('Release prepared (dry run)');
     } else {
       spinner.succeed('Release prepared (use --push to publish to GitHub)');
     }
@@ -267,8 +354,98 @@ async function previewChangelog(releaseData: any, config: QyxChangeConfig): Prom
   console.log(preview);
   console.log(chalk.blue('\n--- End Preview ---\n'));
   
-  // TODO: Open in editor for interactive editing
-  console.log(chalk.yellow('Interactive editing not yet implemented. Use --dry-run to see output.'));
+  // Interactive preview with options
+  const { prompt } = await import('enquirer');
+  
+  try {
+    const response = await prompt<{ action: string }>({
+      type: 'select',
+      name: 'action',
+      message: 'What would you like to do?',
+      choices: [
+        { name: 'accept', message: 'Accept and save changelog' },
+        { name: 'edit', message: 'Open in editor for manual editing' },
+        { name: 'regenerate', message: 'Regenerate with different tone' },
+        { name: 'cancel', message: 'Cancel without saving' }
+      ]
+    });
+
+    switch (response.action) {
+      case 'accept':
+        await writer.writeChangelog(releaseData);
+        console.log(chalk.green('✅ Changelog saved!'));
+        break;
+        
+      case 'edit':
+        await openInEditor(preview, config);
+        break;
+        
+      case 'regenerate':
+        console.log(chalk.yellow('🔄 Regeneration not yet implemented. Use different tone presets in config.'));
+        break;
+        
+      case 'cancel':
+        console.log(chalk.gray('Cancelled.'));
+        break;
+    }
+  } catch (error) {
+    // User cancelled or error occurred
+    console.log(chalk.gray('\nCancelled.'));
+  }
+}
+
+async function openInEditor(content: string, config: QyxChangeConfig): Promise<void> {
+  const fs = await import('fs/promises');
+  const path = await import('path');
+  const os = await import('os');
+  const { exec } = await import('child_process');
+  const { promisify } = await import('util');
+  
+  const execAsync = promisify(exec);
+  
+  try {
+    // Create a temporary file
+    const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'qyx-change-'));
+    const tempFile = path.join(tempDir, 'changelog-preview.md');
+    
+    await fs.writeFile(tempFile, content, 'utf-8');
+    
+    // Determine editor
+    const editor = process.env.EDITOR || process.env.VISUAL || 'nano';
+    
+    console.log(chalk.blue(`Opening in ${editor}...`));
+    console.log(chalk.gray('Save and exit the editor to continue.'));
+    
+    // Open in editor (we need to use spawn for TTY handling, but for simplicity, use exec)
+    await execAsync(`${editor} "${tempFile}"`);
+    
+    // Read the edited content
+    const editedContent = await fs.readFile(tempFile, 'utf-8');
+    
+    // Ask if user wants to save the edited version
+    const { prompt } = await import('enquirer');
+    const response = await prompt<{ save: boolean }>({
+      type: 'confirm',
+      name: 'save',
+      message: 'Save the edited changelog?',
+      initial: true
+    });
+    
+    if (response.save) {
+      // Write the edited content to the actual changelog
+      await fs.writeFile(config.format.changelogPath, editedContent, 'utf-8');
+      console.log(chalk.green(`✅ Saved to ${config.format.changelogPath}`));
+    } else {
+      console.log(chalk.gray('Changes discarded.'));
+    }
+    
+    // Clean up temp file
+    await fs.rm(tempDir, { recursive: true, force: true });
+    
+  } catch (error) {
+    console.error(chalk.red('Failed to open editor:'), error instanceof Error ? error.message : 'Unknown error');
+    console.log(chalk.yellow('💡 Tip: Set the EDITOR environment variable to your preferred editor.'));
+  }
 }
 
 // Handle uncaught errors

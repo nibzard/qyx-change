@@ -1,4 +1,4 @@
-import { simpleGit, SimpleGit, LogResult } from 'simple-git';
+import { simpleGit, SimpleGit } from 'simple-git';
 import conventionalCommitsParser from 'conventional-commits-parser';
 import { Change, ChangeType, CollectionOptions } from '../shared/index.js';
 import { CollectionError } from '../shared/errors.js';
@@ -98,7 +98,7 @@ export class GitCollector {
       const type = this.mapCommitType(parsed.type || null);
       
       return {
-        id: commit.hash,
+        id: commit.hash.substring(0, 7), // Short hash for display
         type,
         scope: parsed.scope || undefined,
         title: parsed.subject || commit.message,
@@ -107,17 +107,22 @@ export class GitCollector {
         commitSha: commit.hash,
         createdAt: new Date(commit.date),
         linkedIssues: this.extractIssueNumbers(commit.body || ''),
+        // Add more useful metadata
+        rawMessage: commit.message,
+        shortHash: commit.hash.substring(0, 7),
       };
     } catch (error) {
       // If parsing fails, create a basic change entry
       return {
-        id: commit.hash,
+        id: commit.hash.substring(0, 7),
         type: 'other',
         title: commit.message,
         body: commit.body?.trim() || undefined,
         author: commit.author,
         commitSha: commit.hash,
         createdAt: new Date(commit.date),
+        shortHash: commit.hash.substring(0, 7),
+        rawMessage: commit.message,
       };
     }
   }

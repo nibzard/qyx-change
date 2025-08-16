@@ -1,7 +1,12 @@
+import { config } from 'dotenv';
 import * as core from '@actions/core';
 import * as github from '@actions/github';
 import { promises as fs } from 'fs';
 import YAML from 'yaml';
+
+// Load environment variables from .env files for local testing
+config({ path: '.env.local' });
+config({ path: '.env' });
 
 // Import our domains
 import { GitCollector, GitHubCollector } from './domains/collection/index.js';
@@ -115,13 +120,14 @@ async function run(): Promise<void> {
       core.info('🚀 Updating GitHub release...');
       
       const releaseUpdater = new GitHubReleaseUpdater(process.env.GITHUB_TOKEN);
-      const [owner, repo] = github.context.repo.owner.split('/');
+      const owner = github.context.repo.owner;
+      const repo = github.context.repo.repo;
       
       const releaseResult = await releaseUpdater.createOrUpdateRelease(
         generationResult.releaseData,
         {
-          owner: github.context.repo.owner,
-          repo: github.context.repo.repo,
+          owner,
+          repo,
           tagName: github.context.ref.replace('refs/tags/', ''),
         }
       );
@@ -129,9 +135,94 @@ async function run(): Promise<void> {
       core.info(`🎉 GitHub release ${releaseResult.wasCreated ? 'created' : 'updated'}`);
     }
 
-    // TODO: Implement commit changes and PR creation
-    if (commitChanges || createPr) {
-      core.warning('Commit changes and PR creation not yet implemented');
+    // Commit changes if configured
+    if (commitChanges) {
+      core.info('💾 Committing changelog changes...');
+      
+      try {
+        const { exec } = await import('child_process');
+        const { promisify } = await import('util');
+        const execAsync = promisify(exec);
+        
+        // Add the changelog file
+        await execAsync(`git add "${writeResult.changelogPath}"`);
+        
+        // Commit with a descriptive message
+        const commitMessage = `chore: update changelog for ${github.context.ref?.replace('refs/tags/', '') || 'release'}
+
+Generated with Qyx Change - AI-powered release notes
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>`;
+        
+        await execAsync(`git commit -m "${commitMessage.replace(/"/g, '\\"')}"`);
+        core.info('✅ Changelog changes committed');
+        
+        // Push if on a branch (not a tag)
+        if (!github.context.ref?.startsWith('refs/tags/')) {
+          await execAsync('git push');
+          core.info('📤 Changes pushed to repository');
+        }
+        
+      } catch (error) {
+        core.warning(`Failed to commit changes: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    }
+
+    // Create PR if configured
+    if (createPr) {
+      core.info('🔄 Creating pull request...');
+      
+      try {
+        const { exec } = await import('child_process');
+        const { promisify } = await import('util');
+        const execAsync = promisify(exec);
+        
+        // Create a new branch for the changelog
+        const branchName = `qyx-change/release-${github.context.ref?.replace('refs/tags/', '') || Date.now()}`;
+        await execAsync(`git checkout -b "${branchName}"`);
+        
+        // Add and commit changes on the new branch
+        await execAsync(`git add "${writeResult.changelogPath}"`);
+        
+        const commitMessage = `Update changelog for ${github.context.ref?.replace('refs/tags/', '') || 'release'}`;
+        await execAsync(`git commit -m "${commitMessage}"`);
+        
+        // Push the branch
+        await execAsync(`git push -u origin "${branchName}"`);
+        
+        // Create PR using GitHub API
+        const octokit = github.getOctokit(process.env.GITHUB_TOKEN || '');
+        const prResponse = await octokit.rest.pulls.create({
+          owner: github.context.repo.owner,
+          repo: github.context.repo.repo,
+          title: `📝 Update changelog for ${github.context.ref?.replace('refs/tags/', '') || 'release'}`,
+          head: branchName,
+          base: 'main', // or 'master' - might need to detect default branch
+          body: `## Changelog Update
+
+This PR updates the changelog with AI-generated release notes.
+
+### Summary
+${generationResult.releaseData.summary}
+
+### Changes
+- Updated \`${writeResult.changelogPath}\` with ${generationResult.releaseData.sections.length} sections
+- Processed ${changes.length} changes
+
+---
+
+🤖 **Auto-generated** by [Qyx Change](https://github.com/qyx/change) using Claude Code AI`,
+        });
+        
+        core.info(`✅ Pull request created: ${prResponse.data.html_url}`);
+        core.setOutput('pr_url', prResponse.data.html_url);
+        core.setOutput('pr_number', prResponse.data.number.toString());
+        
+      } catch (error) {
+        core.warning(`Failed to create pull request: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
     }
 
     core.info('✅ Qyx Change action completed successfully!');

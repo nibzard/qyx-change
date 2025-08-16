@@ -1,0 +1,62 @@
+# Qyx Change Configuration
+# For more configuration options, see: https://github.com/qyx/change
+
+# Basic configuration
+generator: claude-code
+auth:
+  mode: auto  # auto | api-key | oauth
+
+format:
+  changelog_path: CHANGELOG.md
+  sections:
+    - name: "🚀 Features"
+      labels: ["feature", "feat"]
+    - name: "🛠 Fixes"
+      labels: ["bug", "fix"]
+    - name: "⚡ Performance"
+      labels: ["perf"]
+    - name: "📦 Chores"
+      labels: ["chore"]
+    - name: "🔒 Security"
+      labels: ["security"]
+  max_items_per_section: 20
+  include_pr_links: true
+
+generation:
+  tone_preset: "concise"  # concise | friendly | formal | detailed | custom
+  # tone_file: "tones/custom.md"  # when tone_preset is 'custom'
+  locale: "en-US"
+  include_developer_notes: true
+  send_diff_snippets: false
+
+redaction:
+  redact_patterns:
+    - "api_?key"
+    - "secret"
+    - "password"
+    - "token"
+    - "ssh-rsa"
+    - "-----BEGIN PRIVATE KEY-----"
+  email_mask: true
+  trunc_body_to: 300
+
+cache:
+  enabled: true
+  ttl_seconds: 259200  # 3 days
+
+# Modular actions - configure integrations
+actions:
+  enabled: false
+  modules: []
+    # Example modules:
+    # - name: "slack"
+    #   enabled: false
+    #   config:
+    #     webhook_env: "SLACK_WEBHOOK_URL"
+    #     channel: "#releases"
+    # 
+    # - name: "custom-webhook"
+    #   enabled: false
+    #   config:
+    #     url_env: "CUSTOM_WEBHOOK_URL"
+    #     method: "POST"

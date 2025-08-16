@@ -146,8 +146,15 @@ export class ChangelogWriter {
     const lines = existingContent.split('\n');
     const headerEndIndex = this.findHeaderEndIndex(lines);
     
-    // Check if this version already exists
-    if (version) {
+    // If no version is provided, look for existing "Release Notes" or "Unreleased" sections
+    if (!version) {
+      const unreleasedIndex = this.findUnreleasedSection(lines);
+      if (unreleasedIndex !== -1) {
+        // Replace existing unreleased section
+        return this.replaceExistingVersion(lines, newReleaseContent, unreleasedIndex);
+      }
+    } else {
+      // Check if this version already exists
       const existingVersionIndex = this.findExistingVersion(lines, version);
       if (existingVersionIndex !== -1) {
         // Replace existing version
@@ -161,6 +168,24 @@ export class ChangelogWriter {
     const rest = lines.slice(insertIndex).join('\n');
     
     return `${header}\n${newReleaseContent}${rest}`;
+  }
+
+  private findUnreleasedSection(lines: string[]): number {
+    const unreleasedPatterns = [
+      /^## (Release Notes|Unreleased)/i,
+      /^## \[Unreleased\]/i
+    ];
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i] || '';
+      for (const pattern of unreleasedPatterns) {
+        if (pattern.test(line)) {
+          return i;
+        }
+      }
+    }
+    
+    return -1;
   }
 
   private createNewChangelog(newReleaseContent: string): string {

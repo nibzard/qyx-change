@@ -1,0 +1,39 @@
+# Environment files
+.env.local
+.env
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Cache directories
+.cache/
+.qyx-cache/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Backup files
+*.backup.*
+
+# Test coverage
+coverage/
+
+# Temporary files
+*.tmp
+*.temp

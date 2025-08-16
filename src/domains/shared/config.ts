@@ -1,4 +1,4 @@
-import { AuthMode, TonePreset, PermissionMode } from './types.js';
+import { AuthMode, TonePreset } from './types.js';
 
 export interface FormatSection {
   name: string;
@@ -83,10 +83,10 @@ export const DEFAULT_CONFIG: QyxChangeConfig = {
   },
   redaction: {
     redactPatterns: [
-      '(?i)api_?key',
-      '(?i)secret',
-      '(?i)password',
-      '(?i)token',
+      'api_?key',
+      'secret',
+      'password',
+      'token',
       'ssh-rsa',
       '-----BEGIN PRIVATE KEY-----',
     ],

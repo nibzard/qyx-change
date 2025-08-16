@@ -25,6 +25,8 @@ export interface Change {
   prUrl?: string | undefined;
   commitSha?: string | undefined;
   createdAt?: Date | undefined;
+  shortHash?: string | undefined;
+  rawMessage?: string | undefined;
 }
 
 export interface ReleaseSection {

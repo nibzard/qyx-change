@@ -64,7 +64,6 @@ export class Normalizer {
 
   private mergeChanges(existing: Change, incoming: Change): Change {
     // Prefer PR data over commit data
-    const preferPR = existing.prNumber || incoming.prNumber;
     
     return {
       ...existing,

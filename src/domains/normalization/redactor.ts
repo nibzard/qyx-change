@@ -137,7 +137,7 @@ export class Redactor {
     };
   }
 
-  private redactText(text: string, field: string): {
+  private redactText(text: string, _field: string): {
     redactedText: string;
     wasRedacted: boolean;
     patterns: string[];
