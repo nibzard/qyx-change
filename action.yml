@@ -1,0 +1,63 @@
+name: 'Qyx Change - AI-Powered Release Notes'
+description: 'Automatically generate beautiful, human-friendly release notes and changelogs using Claude Code AI'
+author: 'Qyx Team'
+
+branding:
+  icon: 'file-text'
+  color: 'blue'
+
+inputs:
+  changelog_path:
+    description: 'Path to the changelog file'
+    required: false
+    default: 'CHANGELOG.md'
+  
+  config_path:
+    description: 'Path to the configuration file'
+    required: false
+    default: '.qyx-change.yml'
+    
+  since:
+    description: 'Generate changes since this git reference'
+    required: false
+    
+  to:
+    description: 'Generate changes up to this git reference'  
+    required: false
+    
+  commit_changes:
+    description: 'Whether to commit the changelog changes'
+    required: false
+    default: 'false'
+    
+  create_pr:
+    description: 'Whether to create a pull request with changelog changes'
+    required: false
+    default: 'false'
+    
+  update_release:
+    description: 'Whether to update the GitHub release body'
+    required: false
+    default: 'true'
+    
+  tone_preset:
+    description: 'Tone preset to use (concise, friendly, formal, detailed, custom)'
+    required: false
+    default: 'concise'
+
+outputs:
+  changelog_path:
+    description: 'Path to the generated/updated changelog'
+    
+  release_notes:
+    description: 'Generated release notes content'
+    
+  changes_count:
+    description: 'Number of changes processed'
+    
+  sections_count:
+    description: 'Number of sections in the changelog'
+
+runs:
+  using: 'node20'
+  main: 'dist/action.js'

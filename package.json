@@ -1,0 +1,68 @@
+{
+  "name": "qyx-change",
+  "version": "0.1.0",
+  "description": "Automatically generate beautiful, human-friendly release notes and changelogs from your repository's commits and pull requests using Claude Code AI",
+  "main": "dist/index.js",
+  "bin": {
+    "qyx-change": "dist/cli.js"
+  },
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/cli.ts",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "lint": "eslint src/**/*.ts",
+    "format": "prettier --write src/**/*.ts",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "changelog",
+    "release-notes",
+    "ai",
+    "claude",
+    "github",
+    "automation",
+    "git"
+  ],
+  "author": "Qyx Team",
+  "license": "MIT",
+  "dependencies": {
+    "@actions/core": "^1.10.1",
+    "@actions/github": "^6.0.0",
+    "@anthropic-ai/claude-code": "latest",
+    "@octokit/rest": "^20.0.2",
+    "chalk": "^5.3.0",
+    "commander": "^11.1.0",
+    "conventional-commits-parser": "^5.0.0",
+    "enquirer": "^2.4.1",
+    "ora": "^7.0.1",
+    "simple-git": "^3.20.0",
+    "yaml": "^2.3.4"
+  },
+  "devDependencies": {
+    "@types/conventional-commits-parser": "^5.0.1",
+    "@types/node": "^20.10.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.1",
+    "@typescript-eslint/parser": "^6.13.1",
+    "eslint": "^8.54.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-prettier": "^5.0.1",
+    "prettier": "^3.1.0",
+    "tsx": "^4.6.0",
+    "typescript": "^5.3.2",
+    "vitest": "^1.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/qyx/change.git"
+  },
+  "bugs": {
+    "url": "https://github.com/qyx/change/issues"
+  },
+  "homepage": "https://github.com/qyx/change#readme"
+}

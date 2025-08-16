@@ -1,0 +1,97 @@
+# Qyx Change Configuration Example
+# Copy this file to .qyx-change.yml in your repository root
+
+# Generator configuration
+generator: claude-code
+
+# Authentication settings
+auth:
+  mode: auto  # auto | api-key | oauth
+  # token_env_var: CLAUDE_CODE_OAUTH_TOKEN  # Custom token environment variable
+
+# Changelog format settings
+format:
+  changelog_path: CHANGELOG.md
+  sections:
+    - name: "🚀 Features"
+      labels: ["feature", "feat", "enhancement"]
+    - name: "🛠 Fixes"
+      labels: ["bug", "fix", "bugfix"]
+    - name: "⚡ Performance"
+      labels: ["perf", "performance"]
+    - name: "📦 Chores"
+      labels: ["chore", "maintenance"]
+    - name: "🔒 Security"
+      labels: ["security", "sec"]
+    - name: "📚 Documentation"
+      labels: ["docs", "doc", "documentation"]
+  max_items_per_section: 20
+  include_pr_links: true
+
+# AI generation settings
+generation:
+  tone_preset: "concise"  # concise | friendly | formal | detailed | custom
+  # tone_file: "tones/custom.md"  # when tone_preset is 'custom'
+  locale: "en-US"
+  include_developer_notes: true
+  developer_notes_template: |
+    - BREAKING: {desc}
+    - Migration: {instructions}
+  send_diff_snippets: false  # Set to true to send code diffs to AI (privacy risk)
+
+# Privacy and redaction settings
+redaction:
+  redact_patterns:
+    - "(?i)api_?key"
+    - "(?i)secret"
+    - "(?i)password"
+    - "(?i)token"
+    - "ssh-rsa"
+    - "-----BEGIN PRIVATE KEY-----"
+  email_mask: true
+  trunc_body_to: 300
+
+# Caching settings
+cache:
+  enabled: true
+  ttl_seconds: 259200  # 3 days
+
+# Action modules (optional integrations)
+actions:
+  enabled: false
+  modules:
+    - name: "twitter"
+      enabled: false
+      config:
+        api_key_env: "TWITTER_API_KEY"
+        api_secret_env: "TWITTER_API_SECRET"
+        access_token_env: "TWITTER_ACCESS_TOKEN"
+        access_token_secret_env: "TWITTER_ACCESS_TOKEN_SECRET"
+        template: "🚀 Just released {version}! {summary} 
+{url}"
+
+    - name: "slack"
+      enabled: false
+      config:
+        webhook_env: "SLACK_WEBHOOK_URL"
+        channel: "#releases"
+        template: |
+          🚀 *{version} Released!*
+          
+          {summary}
+          
+          <{url}|View Release Notes>
+
+    - name: "custom-webhook"
+      enabled: false
+      config:
+        url_env: "CUSTOM_WEBHOOK_URL"
+        method: "POST"
+        headers:
+          Content-Type: "application/json"
+        template: |
+          {
+            "version": "{version}",
+            "summary": "{summary}",
+            "url": "{url}"
+          }
