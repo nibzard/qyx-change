@@ -9,7 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🚀 Features
 
-- Initial implementation of Qyx Change with domain-driven architecture, Claude Code SDK integration, privacy-first redaction system, and CLI tool with GitHub Action support (01d745d)
+- Add meta GitHub Actions workflows for self-documenting automation including release changelog generation, CLI testing, and manual meta demonstration triggers (82030f5)
+
+### 🛠 Fixes
+
+- Add GitHub Actions permissions and simple workflow to resolve permission denied issues and enable meta proof of work demonstration (c1f0d8f)
+- YAML syntax in meta-demo workflow (ba4fb9f)
 
 **Summary:** This release includes various improvements and fixes.
-

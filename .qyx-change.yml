@@ -23,7 +23,7 @@ format:
   include_pr_links: true
 
 generation:
-  tone_preset: "concise"  # concise | friendly | formal | detailed | custom
+  tone_preset: "friendly"  # concise | friendly | formal | detailed | custom
   # tone_file: "tones/custom.md"  # when tone_preset is 'custom'
   locale: "en-US"
   include_developer_notes: true
